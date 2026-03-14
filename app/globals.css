@@ -12,15 +12,116 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  /* Primary */
+  --color-primary: #050E3C;
+  --color-primary-100: #002455;
+  --color-primary-200: #134686;
+
+  /* Accent */
+  --color-accent: #DC0000;
+  --color-accent-50: #FF5555;
+  --color-accent-100: #FF3838;
+
+  /* breakpoints */
+  --breakpoint-xs: 480px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}
+
+@layer components {
+
+  section,
+  footer {
+    @apply px-2 xs:px-4 py-8 xs:py-10 sm:py-14 md:py-16;
   }
+
+  button {
+    @apply cursor-pointer;
+  }
+
+  .inner-wrapper {
+    @apply mx-auto w-full max-w-[1200px];
+  }
+
+  .massive-text {
+    @apply text-3xl xs:text-4xl sm:text-5xl md:text-6xl font-bold;
+  }
+
+  .big-text-1 {
+    @apply text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-bold;
+  }
+
+  .big-text-2 {
+    @apply text-xl xs:text-2xl sm:text-3xl md:text-4xl font-bold;
+  }
+
+  .big-text-3 {
+    @apply text-lg xs:text-xl sm:text-2xl md:text-3xl;
+  }
+
+  .big-text-4 {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+
+  .big-text-5 {
+    @apply text-base sm:text-lg md:text-xl;
+  }
+
+  .normal-text {
+    @apply text-xs xs:text-sm sm:text-base md:text-lg;
+  }
+
+  .normal-text-2 {
+    @apply text-[10px] xs:text-xs sm:text-sm md:text-base;
+  }
+
+  .small-text {
+    @apply text-[10px] xs:text-xs lg:text-sm;
+  }
+
+  .small-text-2 {
+    @apply text-[9px] xs:text-xs;
+  }
+
+  .flex-center {
+    @apply flex justify-center items-center;
+  }
+
+  .img-cover {
+    @apply w-full h-full object-cover object-center;
+  }
+
+  .img-contain {
+    @apply w-full h-full object-contain object-center;
+  }
+
+    .dash-page {
+    @apply min-h-[80vh] rounded-2xl p-2 md:p-4 border-2 border-accent bg-primary-100;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-metrophobic), sans-serif;
 }
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-nunito), sans-serif;
+}
+
+h4,
+h5,
+h6 {
+  font-family: var(--font-rhodium-libre), sans-serif;
+}
+
