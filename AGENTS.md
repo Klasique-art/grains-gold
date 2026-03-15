@@ -23,6 +23,11 @@
 - Maintain secure user session handling.
 - Use secure password handling (hashing/encryption handled by auth backend).
 
+## Theme and Color Direction
+- Default page background should be white.
+- Use `primary` and `secondary` colors for the main UI theme (for example `bg-primary` where appropriate).
+- Use `accent` and `accent-2` for highlights, emphasis, and supporting visual elements.
+
 ## Implementation Guidance for This Repo
 - Study and follow conventions from `C:\Users\Good\Desktop\Klasique_projects\cafa-tickets` before major implementation work.
 - Specifically learn and mirror:
