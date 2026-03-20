@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as Yup from "yup";
 
 import { AppForm, AppFormField, FormLoader, SubmitButton } from "@/components";
@@ -80,10 +80,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const AuthPage = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialMode = useMemo(() => parseMode(searchParams.get("mode")), [searchParams]);
 
-  const [activeMode, setActiveMode] = useState<AuthMode>(initialMode);
+  const [activeMode, setActiveMode] = useState<AuthMode>("login");
   const [transitionTarget, setTransitionTarget] = useState<AuthMode | null>(null);
   const [motionState, setMotionState] = useState<MotionState>("idle");
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
@@ -107,12 +105,17 @@ const AuthPage = () => {
   }, []);
 
   useEffect(() => {
-    const urlMode = parseMode(searchParams.get("mode"));
-    if (urlMode !== activeMode && urlMode !== transitionTarget) {
-      triggerModeSwitch(urlMode, false);
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const urlMode = parseMode(new URLSearchParams(window.location.search).get("mode"));
+    if (urlMode !== activeMode) {
+      setActiveMode(urlMode);
+      setAnnounceText(`Opening ${modeTitle[urlMode]} form.`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, []);
 
   const queueTimeout = (fn: () => void, delay: number) => {
     const id = window.setTimeout(fn, delay);
