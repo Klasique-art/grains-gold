@@ -38,6 +38,9 @@ export {
 export { default as DashboardSidebar } from "./dashboard/DashboardSidebar";
 export { default as DashboardPlaceholderPage } from "./dashboard/DashboardPlaceholderPage";
 export { default as DashboardOverview } from "./dashboard/DashboardOverview";
+export { default as DashboardOrderHistory } from "./dashboard/DashboardOrderHistory";
+export { default as DashboardOrderTracking } from "./dashboard/DashboardOrderTracking";
+export { default as DashboardProfileSettings } from "./dashboard/DashboardProfileSettings";
 
 // ui
 export { default as AppButton } from "./ui/AppButton";

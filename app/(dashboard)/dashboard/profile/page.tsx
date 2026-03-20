@@ -1,12 +1,7 @@
-import DashboardPlaceholderPage from "@/components/dashboard/DashboardPlaceholderPage";
+import DashboardProfileSettings from "@/components/dashboard/DashboardProfileSettings";
 
 const DashboardProfilePage = () => {
-  return (
-    <DashboardPlaceholderPage
-      title="Profile Settings"
-      description="Customer profile details, password settings, and contact preferences will be editable here."
-    />
-  );
+  return <DashboardProfileSettings />;
 };
 
 export default DashboardProfilePage;

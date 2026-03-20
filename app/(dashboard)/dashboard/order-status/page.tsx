@@ -1,12 +1,7 @@
-import DashboardPlaceholderPage from "@/components/dashboard/DashboardPlaceholderPage";
+import DashboardOrderTracking from "@/components/dashboard/DashboardOrderTracking";
 
 const DashboardOrderStatusPage = () => {
-  return (
-    <DashboardPlaceholderPage
-      title="Order Status"
-      description="Live fulfillment, transport, and delivery milestones will be surfaced on this page."
-    />
-  );
+  return <DashboardOrderTracking />;
 };
 
 export default DashboardOrderStatusPage;
