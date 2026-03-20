@@ -290,7 +290,7 @@ const MobileNav = ({
               ) : (
                 <div className="grid grid-cols-1 gap-3">
                   <Link
-                    href="/login"
+                    href="/auth?mode=login"
                     onClick={onClose}
                     style={getRevealStyle(8, open)}
                     className={`rounded-xl border px-4 py-3 text-center text-sm font-bold transition-all duration-500 motion-reduce:transition-none ${
@@ -304,7 +304,7 @@ const MobileNav = ({
                     Login
                   </Link>
                   <Link
-                    href="/register"
+                    href="/auth?mode=signup"
                     onClick={onClose}
                     style={getRevealStyle(9, open)}
                     className={`rounded-xl px-4 py-3 text-center text-sm font-bold transition-all duration-500 motion-reduce:transition-none ${
@@ -315,7 +315,7 @@ const MobileNav = ({
                         : "bg-accent-2 text-primary hover:bg-accent border border-accent-2 focus-visible:outline-accent-2"
                     }`}
                   >
-                    Create Customer Account
+                    Signup
                   </Link>
                 </div>
               )}

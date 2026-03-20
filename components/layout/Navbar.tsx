@@ -129,7 +129,7 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
               ) : (
                 <div className="flex items-center gap-2">
                   <Link
-                    href="/login"
+                    href="/auth?mode=login"
                     className={`rounded-lg border px-4 py-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       isHighContrast
                         ? "border-black text-black hover:bg-black hover:text-white focus-visible:outline-black"
@@ -139,14 +139,14 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
                     Login
                   </Link>
                   <Link
-                    href="/register"
+                    href="/auth?mode=signup"
                     className={`rounded-lg px-4 py-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       isHighContrast
                         ? "border border-black bg-black text-white hover:bg-white hover:text-black focus-visible:outline-black"
                         : "border border-accent-2 bg-accent-2 text-primary hover:bg-accent focus-visible:outline-accent-2"
                     }`}
                   >
-                    Create Customer Account
+                    Signup
                   </Link>
                 </div>
               )}
