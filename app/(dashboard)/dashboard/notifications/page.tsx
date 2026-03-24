@@ -1,12 +1,7 @@
-import DashboardPlaceholderPage from "@/components/dashboard/DashboardPlaceholderPage";
+import DashboardNotifications from "@/components/dashboard/DashboardNotifications";
 
 const DashboardNotificationsPage = () => {
-  return (
-    <DashboardPlaceholderPage
-      title="Notifications"
-      description="Account alerts, order updates, and product announcements will be managed here."
-    />
-  );
+  return <DashboardNotifications />;
 };
 
 export default DashboardNotificationsPage;

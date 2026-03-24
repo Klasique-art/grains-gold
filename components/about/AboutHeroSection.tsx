@@ -23,8 +23,8 @@ const AboutHeroSection = () => {
 
         <div className="relative overflow-hidden rounded-3xl border border-secondary/20 bg-white p-2 shadow-xl">
           <Image
-            src="https://images.unsplash.com/photo-1629285483773-6b5cde2171d6?q=80&w=1200&auto=format&fit=crop"
-            alt="Workers inspecting harvested maize for sorting and quality control"
+            src="https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=1200&auto=format&fit=crop"
+            alt="Maize harvest arranged for sorting and quality checks"
             width={1200}
             height={900}
             className="h-[330px] w-full rounded-2xl object-cover sm:h-[430px]"
@@ -37,4 +37,3 @@ const AboutHeroSection = () => {
 };
 
 export default AboutHeroSection;
-

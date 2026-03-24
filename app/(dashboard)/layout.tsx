@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ConfirmModal } from "@/components";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import { getCurrentUser, logout } from "@/app/lib/authClient";
 import { dashboardNavLinks } from "@/data/static.dashboard";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
@@ -15,6 +16,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [signoutModalOpen, setSignoutModalOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [isHighContrast, setIsHighContrast] = useState<boolean>(() => {
     if (typeof window === "undefined") {
       return false;
@@ -31,6 +34,27 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     document.documentElement.classList.toggle("high-contrast", isHighContrast);
     window.localStorage.setItem("high-contrast-enabled", String(isHighContrast));
   }, [isHighContrast]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const ensureAuthenticated = async () => {
+      try {
+        await getCurrentUser();
+        if (!mounted) return;
+        setAuthReady(true);
+      } catch {
+        if (!mounted) return;
+        router.replace("/auth?mode=login");
+      }
+    };
+
+    void ensureAuthenticated();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!mobileSidebarOpen) {
@@ -53,6 +77,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     };
   }, [mobileSidebarOpen]);
 
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-4">
+        <p className="text-center text-sm font-semibold text-primary">Checking your session...</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen ${
@@ -70,7 +102,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
       <div className="mx-auto grid min-h-screen w-full max-w-[1400px] grid-cols-1 gap-4 px-2 pb-4 pt-3 sm:px-4 lg:grid-cols-[320px_1fr]">
         <aside
-          className={`hidden rounded-3xl border p-4 shadow-[0_32px_60px_-44px_rgba(29,92,33,0.65)] lg:flex lg:flex-col ${
+          className={`hidden rounded-3xl border p-3 shadow-[0_32px_60px_-44px_rgba(29,92,33,0.65)] lg:sticky lg:top-3 lg:flex lg:h-[calc(100vh-1.5rem)] lg:self-start lg:flex-col ${
             isHighContrast
               ? "border-black bg-white"
               : "border-secondary/25 bg-gradient-to-b from-primary via-primary to-secondary text-white"
@@ -108,7 +140,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   : "border-white/50 text-white hover:bg-white/15 focus-visible:outline-accent-2"
               }`}
             >
-              Back to Website
+              Back to Home
             </Link>
           </div>
         </aside>
@@ -182,7 +214,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           role="dialog"
           aria-modal="true"
           aria-label="Dashboard navigation menu"
-          className={`absolute inset-y-0 left-0 flex h-full w-[88vw] max-w-[340px] transform flex-col border-r p-4 transition-transform ${
+          className={`absolute inset-y-0 left-0 flex h-full w-[88vw] max-w-[340px] transform flex-col border-r p-3 transition-transform ${
             mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
           } ${
             isHighContrast
@@ -239,12 +271,20 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         isHighContrast={isHighContrast}
         title="Sign out of dashboard?"
         description="You will be returned to the authentication page. You can sign in again at any time."
-        confirmLabel="Yes, sign out"
+        confirmLabel={isSigningOut ? "Signing out..." : "Yes, sign out"}
         cancelLabel="Stay signed in"
         onClose={() => setSignoutModalOpen(false)}
-        onConfirm={() => {
-          setSignoutModalOpen(false);
-          router.push("/auth?mode=login");
+        onConfirm={async () => {
+          if (isSigningOut) return;
+
+          setIsSigningOut(true);
+          try {
+            await logout();
+          } finally {
+            setSignoutModalOpen(false);
+            setIsSigningOut(false);
+            router.push("/auth?mode=login");
+          }
         }}
       />
     </div>

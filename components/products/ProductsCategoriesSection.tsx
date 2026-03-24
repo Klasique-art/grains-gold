@@ -1,14 +1,56 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
-import { productCategories, productItems } from "@/data/static.products";
+import { BackendCategory, fetchProductCategories } from "@/app/lib/productsClient";
+import { productCategories } from "@/data/static.products";
 import ProductsSectionHeader from "./ProductsSectionHeader";
 
 const ProductsCategoriesSection = () => {
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get("category") ?? "all";
+  const [categories, setCategories] = useState<BackendCategory[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const request = async () => {
+      try {
+        const data = await fetchProductCategories(controller.signal);
+        setCategories(data);
+      } catch {
+        setCategories([]);
+      }
+    };
+
+    void request();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  const categoryCards = useMemo(() => {
+    if (categories.length > 0) {
+      return categories.map((category) => ({
+        id: category.id,
+        title: category.name,
+        description: category.description || "Browse products in this category.",
+        count: category.product_count,
+      }));
+    }
+
+    return productCategories.map((category) => ({
+      id: category.id,
+      title: category.title,
+      description: category.description,
+      count: undefined,
+    }));
+  }, [categories]);
+
+  const totalCount = categories.reduce((sum, category) => sum + (category.product_count ?? 0), 0);
 
   const withCategoryQuery = (categoryId: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -17,13 +59,10 @@ const ProductsCategoriesSection = () => {
     } else {
       params.set("category", categoryId);
     }
-    params.set("page", "1");
+    params.delete("page");
     const query = params.toString();
     return query ? `/products?${query}#products-list-title` : "/products#products-list-title";
   };
-
-  const categoryCount = (categoryId: string) =>
-    categoryId === "all" ? productItems.length : productItems.filter((item) => item.categoryId === categoryId).length;
 
   return (
     <section aria-labelledby="products-categories-title" className="bg-white">
@@ -47,10 +86,12 @@ const ProductsCategoriesSection = () => {
           >
             <h3 className="text-lg font-black text-primary">All Products</h3>
             <p className="mt-2 text-sm text-primary/80">Browse all active listings.</p>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">{categoryCount("all")} items</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
+              {categories.length > 0 ? `${totalCount} items` : "View listings"}
+            </p>
           </Link>
 
-          {productCategories.map((category) => (
+          {categoryCards.map((category) => (
             <Link
               key={category.id}
               href={withCategoryQuery(category.id)}
@@ -64,7 +105,7 @@ const ProductsCategoriesSection = () => {
               <h3 className="text-lg font-black text-primary">{category.title}</h3>
               <p className="mt-2 text-sm text-primary/80">{category.description}</p>
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
-                {categoryCount(category.id)} items
+                {typeof category.count === "number" ? `${category.count} items` : "View listings"}
               </p>
             </Link>
           ))}

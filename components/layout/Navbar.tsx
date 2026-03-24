@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { getCurrentUser, getTokens, logout } from "@/app/lib/authClient";
 import { profileMenuItems, publicNavLinks } from "@/data/static.navbar";
 import { AppUser } from "@/types";
 import { getUserDisplayName } from "@/utils";
@@ -16,9 +17,11 @@ interface NavbarProps {
 }
 
 const Navbar = ({ currentUser = null }: NavbarProps) => {
+  const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sessionUser, setSessionUser] = useState<AppUser | null>(currentUser);
   const [isHighContrast, setIsHighContrast] = useState<boolean>(() => {
     if (typeof window === "undefined") {
       return false;
@@ -27,19 +30,71 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
     return window.localStorage.getItem("high-contrast-enabled") === "true";
   });
 
-  const isAuthenticated = Boolean(currentUser?.is_active);
+  const isAuthenticated = Boolean(sessionUser?.is_active);
 
   useEffect(() => {
     document.documentElement.classList.toggle("high-contrast", isHighContrast);
     window.localStorage.setItem("high-contrast-enabled", String(isHighContrast));
   }, [isHighContrast]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncSessionUser = async () => {
+      const { access } = getTokens();
+      if (!access) {
+        if (mounted) setSessionUser(null);
+        return;
+      }
+
+      try {
+        const me = await getCurrentUser();
+        if (!mounted) return;
+
+        setSessionUser({
+          id: me.id,
+          username: me.username,
+          password: "",
+          first_name: me.first_name,
+          last_name: me.last_name,
+          email: me.email,
+          user_type: me.user_type,
+          profile_picture: me.profile_picture,
+          mobile_number: me.mobile_number,
+          whatsapp_number: me.whatsapp_number,
+          is_verified: me.is_verified,
+          is_active: me.is_active,
+          is_staff: me.user_type === "STAFF" || me.user_type === "ADMIN",
+          is_superuser: me.user_type === "ADMIN",
+          last_login: null,
+          date_joined: me.created_at,
+          created_at: me.created_at,
+          updated_at: me.updated_at,
+        });
+      } catch {
+        if (mounted) {
+          setSessionUser(null);
+        }
+      }
+    };
+
+    void syncSessionUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pathname]);
+
   const toggleContrast = () => {
     setIsHighContrast((prevState) => !prevState);
   };
 
-  const handleLogout = () => {
-    console.info("User requested logout");
+  const handleLogout = async () => {
+    await logout();
+    setSessionUser(null);
+    setProfileOpen(false);
+    setMobileOpen(false);
+    router.push("/");
   };
 
   return (
@@ -116,10 +171,10 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
                 <span>Contrast</span>
               </button>
 
-              {isAuthenticated && currentUser ? (
+              {isAuthenticated && sessionUser ? (
                 <ProfileDropdown
                   open={profileOpen}
-                  user={currentUser}
+                  user={sessionUser}
                   menuItems={profileMenuItems}
                   onToggle={() => setProfileOpen((prev) => !prev)}
                   onClose={() => setProfileOpen(false)}
@@ -153,9 +208,11 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
             </div>
 
             <div className="flex items-center gap-2 md:hidden">
-              {isAuthenticated && currentUser ? (
-                <span className={`max-w-[140px] truncate text-xs font-semibold ${isHighContrast ? "text-black" : "text-primary"}`}>
-                  {getUserDisplayName(currentUser)}
+              {isAuthenticated && sessionUser ? (
+                <span
+                  className={`max-w-[140px] truncate text-xs font-semibold ${isHighContrast ? "text-black" : "text-primary"}`}
+                >
+                  {getUserDisplayName(sessionUser)}
                 </span>
               ) : null}
               <button
@@ -194,7 +251,7 @@ const Navbar = ({ currentUser = null }: NavbarProps) => {
         open={mobileOpen}
         navLinks={publicNavLinks}
         profileLinks={profileMenuItems}
-        user={isAuthenticated ? currentUser : null}
+        user={isAuthenticated ? sessionUser : null}
         isHighContrast={isHighContrast}
         onToggleContrast={toggleContrast}
         onClose={() => setMobileOpen(false)}

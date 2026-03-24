@@ -8,6 +8,12 @@ export const dashboardNavLinks: DashboardNavItem[] = [
     description: "Quick view of your customer account activity.",
   },
   {
+    id: "place-order",
+    label: "Place Order",
+    href: "/dashboard/place-order",
+    description: "Create a new maize order from your dashboard.",
+  },
+  {
     id: "order-history",
     label: "Order History",
     href: "/dashboard/orders",

@@ -26,8 +26,8 @@ const ProductsPage = () => {
       <Suspense fallback={<ProductsFiltersFallback />}>
         <ProductsCategoriesSection />
         <ProductsGridSection />
+        <ProductsTableSection />
       </Suspense>
-      <ProductsTableSection />
       <ProductsFaqSection />
       <ProductsCtaSection />
     </>

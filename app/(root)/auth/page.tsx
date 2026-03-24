@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Yup from "yup";
 
 import { AppForm, AppFormField, FormLoader, SubmitButton } from "@/components";
+import { login, parseApiError, register } from "@/app/lib/authClient";
 
 type AuthMode = "login" | "signup" | "forgot";
 type MotionState = "idle" | "exiting" | "entering";
@@ -46,6 +47,7 @@ const modeTitle: Record<AuthMode, string> = {
 
 const loginSchema = Yup.object({
   username: Yup.string().trim().required("Username or email is required."),
+  password: Yup.string().required("Password is required."),
 });
 
 const signupSchema = Yup.object({
@@ -88,6 +90,7 @@ const AuthPage = () => {
   const [curtainSeed, setCurtainSeed] = useState(0);
   const [announceText, setAnnounceText] = useState("Login form active.");
   const [statusText, setStatusText] = useState("");
+  const [statusTone, setStatusTone] = useState<"success" | "error">("success");
   const [pendingLabel, setPendingLabel] = useState("");
 
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -165,6 +168,8 @@ const AuthPage = () => {
       : "-translate-x-8 opacity-0";
 
   const submitSimulation = async (label: string, successMessage: string) => {
+    setStatusText("");
+    setStatusTone("success");
     setPendingLabel(label);
     await wait(1100);
     setPendingLabel("");
@@ -200,7 +205,13 @@ const AuthPage = () => {
                 </p>
 
                 {statusText ? (
-                  <p className="mb-4 rounded-lg border border-accent-2/50 bg-white/15 px-3 py-2 text-sm font-medium text-white">
+                  <p
+                    className={`mb-4 rounded-lg border px-3 py-2 text-sm font-medium ${
+                      statusTone === "error"
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-accent-2/50 bg-white/15 text-white"
+                    }`}
+                  >
                     {statusText}
                   </p>
                 ) : null}
@@ -216,11 +227,25 @@ const AuthPage = () => {
                       initialValues={{ username: "", password: "" }}
                       validationSchema={loginSchema}
                       onSubmit={async (values, actions) => {
-                        await submitSimulation(
-                          "Logging in",
-                          `Simulation successful. Welcome back, ${values.username}.`,
-                        );
-                        actions.setSubmitting(false);
+                        setStatusText("");
+                        setStatusTone("success");
+                        setPendingLabel("Logging in");
+
+                        try {
+                          await login(values.username.trim(), values.password);
+                          setStatusText("Login successful. Redirecting to dashboard...");
+                          router.push("/dashboard");
+                        } catch (error) {
+                          const parsed = parseApiError(error, "Login failed. Please check your credentials.");
+                          Object.entries(parsed.fields).forEach(([field, message]) => {
+                            actions.setFieldError(field, message);
+                          });
+                          setStatusTone("error");
+                          setStatusText(parsed.message);
+                        } finally {
+                          setPendingLabel("");
+                          actions.setSubmitting(false);
+                        }
                       }}
                     >
                       <h2 className="mb-1 text-xl font-black text-white">Login to your account</h2>
@@ -278,11 +303,35 @@ const AuthPage = () => {
                       }}
                       validationSchema={signupSchema}
                       onSubmit={async (values, actions) => {
-                        await submitSimulation(
-                          "Creating account",
-                          `Simulation successful. Customer account created for ${values.first_name} ${values.last_name}.`,
-                        );
-                        actions.setSubmitting(false);
+                        setStatusText("");
+                        setStatusTone("success");
+                        setPendingLabel("Creating account");
+
+                        try {
+                          const response = await register({
+                            username: values.username.trim(),
+                            email: values.email.trim(),
+                            first_name: values.first_name.trim(),
+                            last_name: values.last_name.trim(),
+                            mobile_number: values.mobile_number.trim(),
+                            whatsapp_number: values.whatsapp_number.trim() || null,
+                            password: values.password,
+                            password2: values.password2,
+                          });
+
+                          setStatusText(response.message || "Account created successfully. Redirecting to dashboard...");
+                          router.push("/dashboard");
+                        } catch (error) {
+                          const parsed = parseApiError(error, "Account creation failed. Please review your details.");
+                          Object.entries(parsed.fields).forEach(([field, message]) => {
+                            actions.setFieldError(field, message);
+                          });
+                          setStatusTone("error");
+                          setStatusText(parsed.message);
+                        } finally {
+                          setPendingLabel("");
+                          actions.setSubmitting(false);
+                        }
                       }}
                     >
                       <h2 className="mb-1 text-xl font-black text-white">Create customer account</h2>

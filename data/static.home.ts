@@ -2,7 +2,6 @@ import {
   HomeAnnouncement,
   HomeBenefit,
   HomeHeroStat,
-  HomeProductPreview,
   HomeStep,
   HomeTestimonial,
 } from "@/types";
@@ -31,36 +30,6 @@ export const homeBenefits: HomeBenefit[] = [
     title: "Reliable fulfillment",
     description:
       "From confirmation to dispatch, customers get clear status updates and support across delivery and pickups.",
-  },
-];
-
-export const homeProductPreview: HomeProductPreview[] = [
-  {
-    id: "yellow-maize",
-    name: "Premium Yellow Maize",
-    packaging: "50kg bag",
-    pricePerBag: "GHS 420",
-    pricePerTon: "GHS 7,950",
-    availability: "Available",
-    summary: "Ideal for feed mills and high-volume processing.",
-  },
-  {
-    id: "white-maize",
-    name: "White Maize (Food Grade)",
-    packaging: "50kg bag",
-    pricePerBag: "GHS 445",
-    pricePerTon: "GHS 8,400",
-    availability: "Low Stock",
-    summary: "Preferred by food vendors and household bulk buyers.",
-  },
-  {
-    id: "grits-maize",
-    name: "Grits-Ready Maize",
-    packaging: "50kg bag",
-    pricePerBag: "GHS 460",
-    pricePerTon: "GHS 8,700",
-    availability: "Available",
-    summary: "Consistent kernel profile for processing plants.",
   },
 ];
 

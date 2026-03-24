@@ -1,6 +1,41 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { getCurrentUser, getTokens } from "@/app/lib/authClient";
 
 const AboutCtaSection = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(getTokens().access);
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAuth = async () => {
+      const { access } = getTokens();
+      if (!access) {
+        if (mounted) setIsAuthenticated(false);
+        return;
+      }
+
+      try {
+        await getCurrentUser();
+        if (mounted) setIsAuthenticated(true);
+      } catch {
+        if (mounted) setIsAuthenticated(false);
+      }
+    };
+
+    void syncAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section aria-labelledby="about-cta-title" className="bg-primary">
       <div className="inner-wrapper">
@@ -19,10 +54,10 @@ const AboutCtaSection = () => {
               View Products
             </Link>
             <Link
-              href="/register"
+              href={isAuthenticated ? "/dashboard" : "/register"}
               className="rounded-xl border border-accent-2 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
             >
-              Create Customer Account
+              {isAuthenticated ? "Go to Dashboard" : "Create Customer Account"}
             </Link>
           </div>
         </div>
@@ -32,4 +67,3 @@ const AboutCtaSection = () => {
 };
 
 export default AboutCtaSection;
-

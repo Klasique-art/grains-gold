@@ -1,37 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { getMyOrdersPage, OrderItem, OrderStatus } from "@/app/lib/ordersClient";
+
 type TrackStatus = "PENDING" | "PROCESSING" | "DISPATCHED";
-type DeliveryMethod = "PICKUP" | "DELIVERY";
+type ActiveTrackedOrder = OrderItem & { order_status: TrackStatus };
 
-type ActiveOrder = {
-  id: number;
-  order_id: string;
-  product_name: string;
-  quantity_bags: number;
-  quantity_tons: string;
-  total_price: string;
-  payment_option: "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY";
-  delivery_method: DeliveryMethod;
-  delivery_address: string;
-  delivery_date: string;
-  order_status: TrackStatus;
-  updated_at: string;
-};
+const PAGE_SIZE = 100;
 
-const statusStages: { id: TrackStatus | "DELIVERED"; label: string }[] = [
+const statusStages: { id: OrderStatus; label: string }[] = [
   { id: "PENDING", label: "Pending" },
   { id: "PROCESSING", label: "Processing" },
   { id: "DISPATCHED", label: "Dispatched" },
   { id: "DELIVERED", label: "Delivered" },
 ];
 
-const statusToProgress: Record<TrackStatus, number> = {
+const statusToProgress: Record<OrderStatus, number> = {
   PENDING: 1,
   PROCESSING: 2,
   DISPATCHED: 3,
+  DELIVERED: 4,
+  CANCELLED: 1,
 };
 
 const statusBadgeClass: Record<TrackStatus, string> = {
@@ -46,65 +37,6 @@ const statusLabel: Record<TrackStatus, string> = {
   DISPATCHED: "Dispatched",
 };
 
-const simulatedActiveOrders: ActiveOrder[] = [
-  {
-    id: 57,
-    order_id: "ORDA1B2C3D4E",
-    product_name: "Premium Yellow Maize",
-    quantity_bags: 20,
-    quantity_tons: "1.200",
-    total_price: "7000.00",
-    payment_option: "MOBILE_MONEY",
-    delivery_method: "DELIVERY",
-    delivery_address: "Adenta, Accra",
-    delivery_date: "2026-03-22",
-    order_status: "PROCESSING",
-    updated_at: "2026-03-20T10:15:21.001111Z",
-  },
-  {
-    id: 58,
-    order_id: "ORDG7H8J9K1L",
-    product_name: "White Maize Grade A",
-    quantity_bags: 12,
-    quantity_tons: "0.720",
-    total_price: "4140.00",
-    payment_option: "BANK_TRANSFER",
-    delivery_method: "DELIVERY",
-    delivery_address: "Tema, Community 10",
-    delivery_date: "2026-03-24",
-    order_status: "PENDING",
-    updated_at: "2026-03-20T12:35:00.000000Z",
-  },
-  {
-    id: 54,
-    order_id: "ORDS8T9U1V2W",
-    product_name: "Premium Yellow Maize",
-    quantity_bags: 16,
-    quantity_tons: "0.960",
-    total_price: "5600.00",
-    payment_option: "MOBILE_MONEY",
-    delivery_method: "DELIVERY",
-    delivery_address: "Kumasi, Bantama",
-    delivery_date: "2026-03-25",
-    order_status: "DISPATCHED",
-    updated_at: "2026-03-20T11:05:00.000000Z",
-  },
-  {
-    id: 50,
-    order_id: "ORDH1I2J3K4L",
-    product_name: "Mixed Feed Maize",
-    quantity_bags: 14,
-    quantity_tons: "0.840",
-    total_price: "4200.00",
-    payment_option: "MOBILE_MONEY",
-    delivery_method: "DELIVERY",
-    delivery_address: "East Legon, Accra",
-    delivery_date: "2026-03-27",
-    order_status: "PROCESSING",
-    updated_at: "2026-03-20T10:05:00.000000Z",
-  },
-];
-
 const formatCurrency = (value: string) =>
   new Intl.NumberFormat("en-GH", {
     style: "currency",
@@ -112,51 +44,93 @@ const formatCurrency = (value: string) =>
     maximumFractionDigits: 0,
   }).format(Number(value));
 
+const isActiveOrder = (order: OrderItem): order is ActiveTrackedOrder =>
+  order.order_status === "PENDING" || order.order_status === "PROCESSING" || order.order_status === "DISPATCHED";
+
 const DashboardOrderTracking = () => {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | TrackStatus>("ALL");
 
-  const trackedOrders = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  const [orders, setOrders] = useState<ActiveTrackedOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-    return simulatedActiveOrders
-      .filter((order) => {
-        const matchesStatus = statusFilter === "ALL" ? true : order.order_status === statusFilter;
-        const matchesQuery =
-          normalizedQuery.length === 0
-            ? true
-            : order.order_id.toLowerCase().includes(normalizedQuery) ||
-              order.product_name.toLowerCase().includes(normalizedQuery) ||
-              order.delivery_address.toLowerCase().includes(normalizedQuery);
-        return matchesStatus && matchesQuery;
-      })
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const response = await getMyOrdersPage({
+          page: 1,
+          page_size: PAGE_SIZE,
+          ordering: "-created_at",
+          order_status: statusFilter === "ALL" ? undefined : statusFilter,
+          search: query.trim() || undefined,
+        });
+
+        if (!mounted) return;
+
+        const activeOnly = response.results.filter(isActiveOrder);
+        setOrders(activeOnly);
+      } catch (error) {
+        if (!mounted) return;
+
+        const message =
+          typeof error === "object" && error && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Unable to load active order tracking.";
+
+        setErrorMessage(message);
+        setOrders([]);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      mounted = false;
+    };
   }, [query, statusFilter]);
 
   const summary = useMemo(
     () => ({
-      active: trackedOrders.length,
-      dispatched: trackedOrders.filter((order) => order.order_status === "DISPATCHED").length,
-      processing: trackedOrders.filter((order) => order.order_status === "PROCESSING").length,
-      pending: trackedOrders.filter((order) => order.order_status === "PENDING").length,
+      active: orders.length,
+      dispatched: orders.filter((order) => order.order_status === "DISPATCHED").length,
+      processing: orders.filter((order) => order.order_status === "PROCESSING").length,
+      pending: orders.filter((order) => order.order_status === "PENDING").length,
     }),
-    [trackedOrders],
+    [orders],
+  );
+
+  const trackedOrders = useMemo(
+    () => [...orders].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    [orders],
   );
 
   return (
     <section className="dash-page" aria-labelledby="order-tracking-title">
       <header className="mb-6">
         <p className="inline-flex rounded-full border border-secondary/30 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.13em] text-secondary">
-          Active Order Tracking (Simulated)
+          Active Order Tracking
         </p>
         <h1 id="order-tracking-title" className="mt-3 text-2xl font-black text-primary sm:text-3xl">
           Track Active Orders
         </h1>
         <p className="mt-2 max-w-3xl text-sm text-primary/80">
-          This page mirrors customer tracking behavior for active orders. In production, map this to
-          `/api/orders/history/` or `/api/orders/` filtered to non-delivered and non-cancelled orders.
+          This view uses live backend orders filtered to active statuses (pending, processing, dispatched).
         </p>
       </header>
+
+      {errorMessage ? (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errorMessage}</div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-xl border border-secondary/25 bg-white p-4">
@@ -206,7 +180,11 @@ const DashboardOrderTracking = () => {
       </section>
 
       <div className="mt-4 grid gap-4">
-        {trackedOrders.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl border border-secondary/25 bg-white p-6 text-center">
+            <p className="text-sm font-semibold text-primary">Loading active orders...</p>
+          </div>
+        ) : trackedOrders.length === 0 ? (
           <div className="rounded-2xl border border-secondary/25 bg-white p-6 text-center">
             <p className="text-sm font-semibold text-primary">No active orders match your filters.</p>
           </div>
@@ -214,15 +192,16 @@ const DashboardOrderTracking = () => {
           trackedOrders.map((order) => {
             const currentStep = statusToProgress[order.order_status];
             const progressPercent = (currentStep / (statusStages.length - 1)) * 100;
+            const productName = order.product_details?.name || `Product #${order.product}`;
 
             return (
               <article key={order.id} className="rounded-2xl border border-secondary/25 bg-white p-4 sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-primary">{order.order_id}</p>
-                    <h2 className="mt-1 text-lg font-black text-primary">{order.product_name}</h2>
+                    <h2 className="mt-1 text-lg font-black text-primary">{productName}</h2>
                     <p className="mt-1 text-xs text-primary/75">
-                      {order.quantity_bags} bags ({order.quantity_tons} tons) • {formatCurrency(order.total_price)}
+                      {order.quantity_bags} bags ({order.quantity_tons} tons) | {formatCurrency(order.total_price)}
                     </p>
                   </div>
                   <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${statusBadgeClass[order.order_status]}`}>
@@ -234,7 +213,7 @@ const DashboardOrderTracking = () => {
                   <div>
                     <dt className="font-semibold uppercase tracking-wide text-secondary">Delivery</dt>
                     <dd className="mt-1 text-sm text-primary">
-                      {order.delivery_method} • {order.delivery_date}
+                      {order.delivery_method} | {order.delivery_date}
                     </dd>
                   </div>
                   <div>

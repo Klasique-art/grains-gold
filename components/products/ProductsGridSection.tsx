@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { fetchProducts, ProductSort, ProductsPaginatedResponse } from "@/app/lib/productsClient";
 import { placeholderImage } from "@/data/constants";
-import { productItems } from "@/data/static.products";
 import { ProductAvailability } from "@/types";
 import ProductsSectionHeader from "./ProductsSectionHeader";
 
@@ -22,28 +22,64 @@ const availabilityLabelMap: Record<ProductAvailability, string> = {
   OUT_OF_STOCK: "Out of Stock",
 };
 
-const parseNumericPrice = (value: string) => {
-  const cleaned = value.replace(/[^\d.]/g, "");
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+const validSortValues: ProductSort[] = ["featured", "price_asc", "price_desc", "name_asc", "name_desc"];
+const validAvailabilityValues: ProductAvailability[] = ["AVAILABLE", "LOW_STOCK", "OUT_OF_STOCK"];
+const validPageSizes = [4, 6, 12];
+
+const normalizePageValue = (value: string | null) => {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+};
+
+const normalizePageSizeValue = (value: string | null) => {
+  const parsed = Number.parseInt(value ?? "12", 10);
+  if (Number.isNaN(parsed)) return 12;
+  if (!validPageSizes.includes(parsed)) return 12;
+  return parsed;
+};
+
+const formatPrice = (price: string, currency = "GHS") => {
+  const numeric = Number.parseFloat(price);
+  if (Number.isNaN(numeric)) {
+    return price;
+  }
+  return `${currency} ${numeric.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const ProductsGridSection = () => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [productsResponse, setProductsResponse] = useState<ProductsPaginatedResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const category = searchParams.get("category") ?? "all";
-  const availability = searchParams.get("availability") ?? "all";
-  const sort = searchParams.get("sort") ?? "featured";
+  const availability = useMemo(() => {
+    const value = searchParams.get("availability");
+    if (!value) return "all";
+    return validAvailabilityValues.includes(value as ProductAvailability) ? value : "all";
+  }, [searchParams]);
+  const sort = useMemo(() => {
+    const value = searchParams.get("sort");
+    if (!value) return "featured";
+    return validSortValues.includes(value as ProductSort) ? (value as ProductSort) : "featured";
+  }, [searchParams]);
   const query = searchParams.get("q") ?? "";
-  const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const pageSize = Math.max(1, Number.parseInt(searchParams.get("page_size") ?? "4", 10) || 4);
+  const page = normalizePageValue(searchParams.get("page"));
+  const pageSize = normalizePageSizeValue(searchParams.get("page_size"));
 
   const updateQueryParams = (updates: Record<string, string | null>, resetPage = false) => {
     const params = new URLSearchParams(searchParams.toString());
+
     for (const [key, value] of Object.entries(updates)) {
-      if (!value || value === "all" || value === "featured") {
+      if (
+        !value ||
+        value === "all" ||
+        value === "featured" ||
+        (key === "page" && value === "1") ||
+        (key === "page_size" && value === "12")
+      ) {
         params.delete(key);
       } else {
         params.set(key, value);
@@ -51,46 +87,68 @@ const ProductsGridSection = () => {
     }
 
     if (resetPage) {
-      params.set("page", "1");
+      params.delete("page");
     }
 
     const nextQuery = params.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   };
 
-  const filteredAndSortedProducts = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setErrorMessage("");
 
-    const filtered = productItems.filter((product) => {
-      const categoryMatch = category === "all" || product.categoryId === category;
-      const availabilityMatch = availability === "all" || product.availability === availability;
-      const textMatch =
-        normalizedQuery.length === 0 ||
-        product.name.toLowerCase().includes(normalizedQuery) ||
-        product.summary.toLowerCase().includes(normalizedQuery) ||
-        product.maizeType.toLowerCase().includes(normalizedQuery);
+    const request = async () => {
+      try {
+        const response = await fetchProducts(
+          {
+            q: query.trim() || undefined,
+            category: category !== "all" ? category : undefined,
+            availability: availability !== "all" ? (availability as ProductAvailability) : undefined,
+            sort,
+            page,
+            page_size: pageSize,
+          },
+          controller.signal,
+        );
 
-      return categoryMatch && availabilityMatch && textMatch;
-    });
+        setProductsResponse(response);
+      } catch (error) {
+        if (controller.signal.aborted) return;
 
-    const sorted = [...filtered];
-    if (sort === "price_asc") {
-      sorted.sort((a, b) => parseNumericPrice(a.pricePerTon) - parseNumericPrice(b.pricePerTon));
-    } else if (sort === "price_desc") {
-      sorted.sort((a, b) => parseNumericPrice(b.pricePerTon) - parseNumericPrice(a.pricePerTon));
-    } else if (sort === "name_asc") {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sort === "name_desc") {
-      sorted.sort((a, b) => b.name.localeCompare(a.name));
-    }
+        const message =
+          typeof error === "object" && error && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Unable to load products right now.";
 
-    return sorted;
-  }, [availability, category, query, sort]);
+        setProductsResponse(null);
+        setErrorMessage(message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  const totalPages = Math.max(1, Math.ceil(filteredAndSortedProducts.length / pageSize));
+    void request();
+
+    return () => {
+      controller.abort();
+    };
+  }, [availability, category, page, pageSize, query, sort]);
+
+  const totalCount = productsResponse?.count ?? 0;
+  const paginatedProducts = productsResponse?.results ?? [];
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const normalizedPage = Math.min(page, totalPages);
-  const startIndex = (normalizedPage - 1) * pageSize;
-  const paginatedProducts = filteredAndSortedProducts.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    if (!productsResponse) return;
+    if (page <= totalPages) return;
+    updateQueryParams({ page: String(totalPages) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, productsResponse, totalPages]);
 
   const goToPage = (nextPage: number) => {
     updateQueryParams({ page: String(nextPage) });
@@ -166,81 +224,88 @@ const ProductsGridSection = () => {
         </div>
 
         <p className="text-sm text-primary/75" aria-live="polite">
-          Showing {paginatedProducts.length} of {filteredAndSortedProducts.length} result
-          {filteredAndSortedProducts.length === 1 ? "" : "s"}.
+          {loading
+            ? "Loading products..."
+            : `Showing ${paginatedProducts.length} of ${totalCount} result${totalCount === 1 ? "" : "s"}.`}
         </p>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {paginatedProducts.map((product) => (
-            <article id={product.slug} key={product.id} className="overflow-hidden rounded-2xl border border-secondary/20 bg-white shadow-sm">
-              <Image
-                src={product.image || placeholderImage}
-                alt={`${product.name} maize product image`}
-                width={1200}
-                height={700}
-                className="h-48 w-full object-cover"
-              />
-              <div className="p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-primary">{product.name}</h3>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">{product.maizeType}</p>
-                </div>
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-bold ${availabilityClassMap[product.availability]}`}
-                  aria-label={`Availability: ${availabilityLabelMap[product.availability]}`}
-                >
-                  {availabilityLabelMap[product.availability]}
-                </span>
-              </div>
+        {errorMessage ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+            <p className="text-sm font-semibold text-red-700">{errorMessage}</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {paginatedProducts.map((product) => (
+              <article id={product.slug} key={product.id} className="overflow-hidden rounded-2xl border border-secondary/20 bg-white shadow-sm">
+                <Image
+                  src={product.image_url || placeholderImage}
+                  alt={`${product.name} maize product image`}
+                  width={1200}
+                  height={700}
+                  className="h-48 w-full object-cover"
+                />
+                <div className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-black text-primary">{product.name}</h3>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-secondary">{product.maize_type}</p>
+                    </div>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-bold ${availabilityClassMap[product.availability_status]}`}
+                      aria-label={`Availability: ${availabilityLabelMap[product.availability_status]}`}
+                    >
+                      {availabilityLabelMap[product.availability_status]}
+                    </span>
+                  </div>
 
-              <p className="mt-3 text-sm text-primary/80">{product.summary}</p>
+                  <p className="mt-3 text-sm text-primary/80">{product.description}</p>
 
-              <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-                <div className="rounded-lg bg-secondary/8 px-3 py-2">
-                  <dt className="text-xs text-primary/75">Packaging</dt>
-                  <dd className="text-sm font-bold text-primary">{product.packagingSize}</dd>
-                </div>
-                <div className="rounded-lg bg-secondary/8 px-3 py-2">
-                  <dt className="text-xs text-primary/75">Minimum order</dt>
-                  <dd className="text-sm font-bold text-primary">{product.minOrder}</dd>
-                </div>
-                <div className="rounded-lg bg-secondary/8 px-3 py-2">
-                  <dt className="text-xs text-primary/75">Price per bag</dt>
-                  <dd className="text-sm font-bold text-primary">{product.pricePerBag}</dd>
-                </div>
-                <div className="rounded-lg bg-secondary/8 px-3 py-2">
-                  <dt className="text-xs text-primary/75">Price per ton</dt>
-                  <dd className="text-sm font-bold text-primary">{product.pricePerTon}</dd>
-                </div>
-              </dl>
+                  <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg bg-secondary/8 px-3 py-2">
+                      <dt className="text-xs text-primary/75">Packaging</dt>
+                      <dd className="text-sm font-bold text-primary">{product.packaging_size}</dd>
+                    </div>
+                    <div className="rounded-lg bg-secondary/8 px-3 py-2">
+                      <dt className="text-xs text-primary/75">Minimum order</dt>
+                      <dd className="text-sm font-bold text-primary">{product.min_order_quantity}</dd>
+                    </div>
+                    <div className="rounded-lg bg-secondary/8 px-3 py-2">
+                      <dt className="text-xs text-primary/75">Price per bag</dt>
+                      <dd className="text-sm font-bold text-primary">{formatPrice(product.price_per_bag, product.currency)}</dd>
+                    </div>
+                    <div className="rounded-lg bg-secondary/8 px-3 py-2">
+                      <dt className="text-xs text-primary/75">Price per ton</dt>
+                      <dd className="text-sm font-bold text-primary">{formatPrice(product.price_per_ton, product.currency)}</dd>
+                    </div>
+                  </dl>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Link
-                  href="/login"
-                  className="rounded-lg border border-primary bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
-                >
-                  Order Now
-                </Link>
-                <Link
-                  href={`/products#${product.slug}`}
-                  className="rounded-lg border border-secondary/40 px-4 py-2 text-xs font-bold text-primary transition hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
-                >
-                  View Details
-                </Link>
-                <Link
-                  href="/contact#quote"
-                  className="rounded-lg border border-accent-2 px-4 py-2 text-xs font-bold text-primary transition hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
-                >
-                  Request Quote
-                </Link>
-              </div>
-              </div>
-            </article>
-          ))}
-        </div>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                  <Link
+                      href={`/dashboard/place-order?product=${product.id}`}
+                      className="rounded-lg border border-primary bg-primary px-4 py-2 text-xs font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+                    >
+                      Order Now
+                    </Link>
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="rounded-lg border border-secondary/40 px-4 py-2 text-xs font-bold text-primary transition hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+                    >
+                      View Details
+                    </Link>
+                    <Link
+                      href="/contact#quote"
+                      className="rounded-lg border border-accent-2 px-4 py-2 text-xs font-bold text-primary transition hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+                    >
+                      Request Quote
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
 
-        {filteredAndSortedProducts.length === 0 ? (
+        {!loading && !errorMessage && totalCount === 0 ? (
           <div className="rounded-2xl border border-secondary/20 bg-white p-8 text-center">
             <p className="text-base font-semibold text-primary">No products match your current filters.</p>
             <p className="mt-1 text-sm text-primary/75">Try adjusting search, availability, or selected category.</p>
@@ -251,7 +316,7 @@ const ProductsGridSection = () => {
           <button
             type="button"
             onClick={() => goToPage(normalizedPage - 1)}
-            disabled={normalizedPage <= 1}
+            disabled={normalizedPage <= 1 || loading}
             className="rounded-lg border border-secondary/40 px-4 py-2 text-sm font-bold text-primary transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             Previous
@@ -264,7 +329,7 @@ const ProductsGridSection = () => {
           <button
             type="button"
             onClick={() => goToPage(normalizedPage + 1)}
-            disabled={normalizedPage >= totalPages}
+            disabled={normalizedPage >= totalPages || loading}
             className="rounded-lg border border-secondary/40 px-4 py-2 text-sm font-bold text-primary transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             Next

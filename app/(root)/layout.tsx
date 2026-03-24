@@ -1,11 +1,10 @@
 import { Navbar, Footer } from "@/components"
-import { currentUser } from "@/data/dummyUser"
 
 const RootLayout = async ({children}: {children: React.ReactNode}) => {
 
   return (
     <div>
-        <Navbar currentUser={currentUser} />
+        <Navbar currentUser={null} />
           <main id="main-content">{children}</main>
         <Footer />
     </div>

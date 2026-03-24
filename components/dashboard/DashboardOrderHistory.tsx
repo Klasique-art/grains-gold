@@ -1,179 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { ConfirmModal } from "@/components";
+import { cancelOrder, DeliveryMethod, getMyOrderHistory, getMyOrdersPage, OrderItem, OrderStatus } from "@/app/lib/ordersClient";
 
-type OrderStatus = "PENDING" | "PROCESSING" | "DISPATCHED" | "DELIVERED" | "CANCELLED";
-type PaymentOption = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY";
-type DeliveryMethod = "PICKUP" | "DELIVERY";
-
-type SimulatedOrder = {
-  id: number;
-  order_id: string;
-  product_name: string;
-  quantity_bags: number;
-  quantity_tons: string;
-  unit_price: string;
-  total_price: string;
-  delivery_method: DeliveryMethod;
-  delivery_address: string;
-  delivery_date: string;
-  payment_option: PaymentOption;
-  order_status: OrderStatus;
-  customer_notes: string;
-  admin_notes: string;
-  approved_by_name: string;
-  approved_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-const initialOrders: SimulatedOrder[] = [
-  {
-    id: 57,
-    order_id: "ORDA1B2C3D4E",
-    product_name: "Premium Yellow Maize",
-    quantity_bags: 20,
-    quantity_tons: "1.200",
-    unit_price: "350.00",
-    total_price: "7000.00",
-    delivery_method: "DELIVERY",
-    delivery_address: "Adenta, Accra",
-    delivery_date: "2026-03-22",
-    payment_option: "MOBILE_MONEY",
-    order_status: "PROCESSING",
-    customer_notes: "",
-    admin_notes: "",
-    approved_by_name: "Admin User",
-    approved_at: "2026-03-20T10:15:21.001111Z",
-    created_at: "2026-03-20T09:58:00.000000Z",
-    updated_at: "2026-03-20T10:15:21.001111Z",
-  },
-  {
-    id: 58,
-    order_id: "ORDG7H8J9K1L",
-    product_name: "White Maize Grade A",
-    quantity_bags: 12,
-    quantity_tons: "0.720",
-    unit_price: "345.00",
-    total_price: "4140.00",
-    delivery_method: "DELIVERY",
-    delivery_address: "Tema, Community 10",
-    delivery_date: "2026-03-24",
-    payment_option: "BANK_TRANSFER",
-    order_status: "PENDING",
-    customer_notes: "Call before dispatch",
-    admin_notes: "",
-    approved_by_name: "",
-    approved_at: null,
-    created_at: "2026-03-20T12:35:00.000000Z",
-    updated_at: "2026-03-20T12:35:00.000000Z",
-  },
-  {
-    id: 55,
-    order_id: "ORDM2N3P4Q5R",
-    product_name: "Mixed Feed Maize",
-    quantity_bags: 30,
-    quantity_tons: "1.800",
-    unit_price: "300.00",
-    total_price: "9000.00",
-    delivery_method: "PICKUP",
-    delivery_address: "Main Warehouse",
-    delivery_date: "2026-03-18",
-    payment_option: "CASH",
-    order_status: "DELIVERED",
-    customer_notes: "",
-    admin_notes: "Collected successfully.",
-    approved_by_name: "Admin User",
-    approved_at: "2026-03-18T07:42:00.000000Z",
-    created_at: "2026-03-17T15:11:00.000000Z",
-    updated_at: "2026-03-18T09:32:00.000000Z",
-  },
-  {
-    id: 54,
-    order_id: "ORDS8T9U1V2W",
-    product_name: "Premium Yellow Maize",
-    quantity_bags: 16,
-    quantity_tons: "0.960",
-    unit_price: "350.00",
-    total_price: "5600.00",
-    delivery_method: "DELIVERY",
-    delivery_address: "Kumasi, Bantama",
-    delivery_date: "2026-03-25",
-    payment_option: "MOBILE_MONEY",
-    order_status: "DISPATCHED",
-    customer_notes: "Evening delivery preferred",
-    admin_notes: "Truck en route.",
-    approved_by_name: "Admin User",
-    approved_at: "2026-03-20T07:22:00.000000Z",
-    created_at: "2026-03-19T11:18:00.000000Z",
-    updated_at: "2026-03-20T11:05:00.000000Z",
-  },
-  {
-    id: 53,
-    order_id: "ORDX5Y6Z7A8B",
-    product_name: "White Maize Grade A",
-    quantity_bags: 10,
-    quantity_tons: "0.600",
-    unit_price: "345.00",
-    total_price: "3450.00",
-    delivery_method: "DELIVERY",
-    delivery_address: "Kasoa, Ofaakor",
-    delivery_date: "2026-03-19",
-    payment_option: "BANK_TRANSFER",
-    order_status: "CANCELLED",
-    customer_notes: "",
-    admin_notes: "Cancelled by customer request.",
-    approved_by_name: "",
-    approved_at: null,
-    created_at: "2026-03-18T08:14:00.000000Z",
-    updated_at: "2026-03-18T10:02:00.000000Z",
-  },
-  {
-    id: 51,
-    order_id: "ORDC4D5E6F7G",
-    product_name: "Premium Yellow Maize",
-    quantity_bags: 22,
-    quantity_tons: "1.320",
-    unit_price: "350.00",
-    total_price: "7700.00",
-    delivery_method: "PICKUP",
-    delivery_address: "Main Warehouse",
-    delivery_date: "2026-03-16",
-    payment_option: "CASH",
-    order_status: "DELIVERED",
-    customer_notes: "",
-    admin_notes: "Picked up on schedule.",
-    approved_by_name: "Admin User",
-    approved_at: "2026-03-15T06:02:00.000000Z",
-    created_at: "2026-03-14T17:28:00.000000Z",
-    updated_at: "2026-03-16T12:01:00.000000Z",
-  },
-  {
-    id: 50,
-    order_id: "ORDH1I2J3K4L",
-    product_name: "Mixed Feed Maize",
-    quantity_bags: 14,
-    quantity_tons: "0.840",
-    unit_price: "300.00",
-    total_price: "4200.00",
-    delivery_method: "DELIVERY",
-    delivery_address: "East Legon, Accra",
-    delivery_date: "2026-03-27",
-    payment_option: "MOBILE_MONEY",
-    order_status: "PROCESSING",
-    customer_notes: "Deliver before noon",
-    admin_notes: "",
-    approved_by_name: "Admin User",
-    approved_at: "2026-03-20T10:05:00.000000Z",
-    created_at: "2026-03-19T09:03:00.000000Z",
-    updated_at: "2026-03-20T10:05:00.000000Z",
-  },
-];
-
-const pageSize = 5;
+const PAGE_SIZE = 5;
 
 const statusLabel: Record<OrderStatus, string> = {
   PENDING: "Pending",
@@ -193,7 +26,7 @@ const statusBadgeClass: Record<OrderStatus, string> = {
 
 const canCancel = (status: OrderStatus) => ["PENDING", "PROCESSING", "DISPATCHED"].includes(status);
 
-const formatCurrency = (value: string) =>
+const formatCurrency = (value: string | number) =>
   new Intl.NumberFormat("en-GH", {
     style: "currency",
     currency: "GHS",
@@ -201,93 +34,170 @@ const formatCurrency = (value: string) =>
   }).format(Number(value));
 
 const DashboardOrderHistory = () => {
-  const [orders, setOrders] = useState<SimulatedOrder[]>(initialOrders);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | OrderStatus>("ALL");
   const [deliveryFilter, setDeliveryFilter] = useState<"ALL" | DeliveryMethod>("ALL");
   const [sortBy, setSortBy] = useState<"-created_at" | "created_at" | "-total_price" | "total_price">("-created_at");
   const [currentPage, setCurrentPage] = useState(1);
-  const [targetCancelId, setTargetCancelId] = useState<number | null>(null);
 
-  const filteredOrders = useMemo(() => {
+  const [pagedOrders, setPagedOrders] = useState<OrderItem[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<OrderItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const [targetCancelId, setTargetCancelId] = useState<number | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  const applyLocalFilter = useCallback((orders: OrderItem[]) => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    let data = orders.filter((order) => {
+    return orders.filter((order) => {
       const matchesStatus = statusFilter === "ALL" ? true : order.order_status === statusFilter;
       const matchesDelivery = deliveryFilter === "ALL" ? true : order.delivery_method === deliveryFilter;
+      const productName = order.product_details?.name ?? `Product #${order.product}`;
       const matchesQuery =
         normalizedQuery.length === 0
           ? true
           : order.order_id.toLowerCase().includes(normalizedQuery) ||
-            order.product_name.toLowerCase().includes(normalizedQuery) ||
+            productName.toLowerCase().includes(normalizedQuery) ||
             order.delivery_address.toLowerCase().includes(normalizedQuery);
 
       return matchesStatus && matchesDelivery && matchesQuery;
     });
+  }, [deliveryFilter, query, statusFilter]);
 
-    data = [...data].sort((a, b) => {
-      if (sortBy === "-created_at") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sortBy === "created_at") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sortBy === "-total_price") return Number(b.total_price) - Number(a.total_price);
-      return Number(a.total_price) - Number(b.total_price);
-    });
+  useEffect(() => {
+    const controller = new AbortController();
 
-    return data;
-  }, [orders, query, statusFilter, deliveryFilter, sortBy]);
+    const load = async () => {
+      setLoading(true);
+      setErrorMessage("");
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+      try {
+        const [pageData, historyData] = await Promise.all([
+          getMyOrdersPage({
+            page: currentPage,
+            page_size: PAGE_SIZE,
+            order_status: statusFilter === "ALL" ? undefined : statusFilter,
+            delivery_method: deliveryFilter === "ALL" ? undefined : deliveryFilter,
+            ordering: sortBy,
+            search: query.trim() || undefined,
+          }),
+          getMyOrderHistory(),
+        ]);
 
-  const paginatedOrders = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredOrders.slice(startIndex, startIndex + pageSize);
-  }, [filteredOrders, currentPage]);
+        if (controller.signal.aborted) return;
+
+        setPagedOrders(pageData.results);
+        setTotalCount(pageData.count);
+        setFilteredHistory(applyLocalFilter(historyData));
+
+        const totalPages = Math.max(1, Math.ceil(pageData.count / PAGE_SIZE));
+        if (currentPage > totalPages) {
+          setCurrentPage(totalPages);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+
+        const message =
+          typeof error === "object" && error && "message" in error
+            ? String((error as { message: unknown }).message)
+            : "Unable to load order history.";
+
+        setErrorMessage(message);
+        setPagedOrders([]);
+        setFilteredHistory([]);
+        setTotalCount(0);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      controller.abort();
+    };
+  }, [applyLocalFilter, currentPage, deliveryFilter, query, sortBy, statusFilter]);
 
   const totals = useMemo(
     () => ({
-      count: filteredOrders.length,
-      spend: filteredOrders.reduce((sum, order) => sum + Number(order.total_price), 0),
-      processing: filteredOrders.filter((order) => order.order_status === "PROCESSING").length,
-      delivered: filteredOrders.filter((order) => order.order_status === "DELIVERED").length,
+      count: filteredHistory.length,
+      spend: filteredHistory.reduce((sum, order) => sum + Number(order.total_price), 0),
+      processing: filteredHistory.filter((order) => order.order_status === "PROCESSING").length,
+      delivered: filteredHistory.filter((order) => order.order_status === "DELIVERED").length,
     }),
-    [filteredOrders],
+    [filteredHistory],
   );
 
-  const resetToPageOne = () => setCurrentPage(1);
+  const totalPages = Math.max(1, Math.ceil(totalCount / Math.max(pagedOrders.length, 1)));
 
-  const applyCancel = () => {
-    if (targetCancelId === null) {
-      return;
+  const onFilterChange = (callback: () => void) => {
+    callback();
+    setCurrentPage(1);
+  };
+
+  const refreshAfterMutation = async () => {
+    const [pageData, historyData] = await Promise.all([
+      getMyOrdersPage({
+        page: currentPage,
+        page_size: PAGE_SIZE,
+        order_status: statusFilter === "ALL" ? undefined : statusFilter,
+        delivery_method: deliveryFilter === "ALL" ? undefined : deliveryFilter,
+        ordering: sortBy,
+        search: query.trim() || undefined,
+      }),
+      getMyOrderHistory(),
+    ]);
+
+    setPagedOrders(pageData.results);
+    setTotalCount(pageData.count);
+    setFilteredHistory(applyLocalFilter(historyData));
+  };
+
+  const applyCancel = async () => {
+    if (targetCancelId === null || cancelLoading) return;
+
+    setCancelLoading(true);
+    setErrorMessage("");
+
+    try {
+      await cancelOrder(targetCancelId, "Cancelled by customer request");
+      setTargetCancelId(null);
+      await refreshAfterMutation();
+    } catch (error) {
+      const message =
+        typeof error === "object" && error && "message" in error
+          ? String((error as { message: unknown }).message)
+          : "Unable to cancel order.";
+
+      setErrorMessage(message);
+    } finally {
+      setCancelLoading(false);
     }
-
-    setOrders((current) =>
-      current.map((order) =>
-        order.id === targetCancelId
-          ? {
-              ...order,
-              order_status: "CANCELLED",
-              admin_notes: "Cancelled by customer request (simulated).",
-              updated_at: new Date().toISOString(),
-            }
-          : order,
-      ),
-    );
-    setTargetCancelId(null);
   };
 
   return (
     <section className="dash-page" aria-labelledby="order-history-title">
       <header className="mb-6">
         <p className="inline-flex rounded-full border border-secondary/30 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.13em] text-secondary">
-          /api/orders/history/ simulation
+          Live Data
         </p>
         <h1 id="order-history-title" className="mt-3 text-2xl font-black text-primary sm:text-3xl">
           Order History
         </h1>
         <p className="mt-2 max-w-3xl text-sm text-primary/80">
-          This screen mimics the backend contract for personal order history, filters, sorting, pagination, and cancel
-          flow. Replace local data with API responses when integration starts.
+          Your order history is now loaded from backend endpoints with server-side filtering, sorting, and pagination.
         </p>
       </header>
+
+      {errorMessage ? (
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errorMessage}</div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-xl border border-secondary/25 bg-white p-4">
@@ -314,10 +224,7 @@ const DashboardOrderHistory = () => {
             <span className="text-xs font-bold uppercase tracking-wide text-secondary">Search</span>
             <input
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                resetToPageOne();
-              }}
+              onChange={(event) => onFilterChange(() => setQuery(event.target.value))}
               type="search"
               placeholder="Order ID, product, location"
               className="h-11 rounded-xl border border-secondary/35 px-3 text-sm text-primary outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
@@ -328,10 +235,7 @@ const DashboardOrderHistory = () => {
             <span className="text-xs font-bold uppercase tracking-wide text-secondary">Status</span>
             <select
               value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value as "ALL" | OrderStatus);
-                resetToPageOne();
-              }}
+              onChange={(event) => onFilterChange(() => setStatusFilter(event.target.value as "ALL" | OrderStatus))}
               className="h-11 rounded-xl border border-secondary/35 px-3 text-sm text-primary outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
             >
               <option value="ALL">All statuses</option>
@@ -347,10 +251,7 @@ const DashboardOrderHistory = () => {
             <span className="text-xs font-bold uppercase tracking-wide text-secondary">Delivery Method</span>
             <select
               value={deliveryFilter}
-              onChange={(event) => {
-                setDeliveryFilter(event.target.value as "ALL" | DeliveryMethod);
-                resetToPageOne();
-              }}
+              onChange={(event) => onFilterChange(() => setDeliveryFilter(event.target.value as "ALL" | DeliveryMethod))}
               className="h-11 rounded-xl border border-secondary/35 px-3 text-sm text-primary outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
             >
               <option value="ALL">All methods</option>
@@ -363,10 +264,7 @@ const DashboardOrderHistory = () => {
             <span className="text-xs font-bold uppercase tracking-wide text-secondary">Sort</span>
             <select
               value={sortBy}
-              onChange={(event) => {
-                setSortBy(event.target.value as typeof sortBy);
-                resetToPageOne();
-              }}
+              onChange={(event) => onFilterChange(() => setSortBy(event.target.value as typeof sortBy))}
               className="h-11 rounded-xl border border-secondary/35 px-3 text-sm text-primary outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
             >
               <option value="-created_at">Newest first</option>
@@ -393,7 +291,7 @@ const DashboardOrderHistory = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedOrders.map((order) => (
+              {pagedOrders.map((order) => (
                 <tr key={order.id} className="border-t border-secondary/15">
                   <td className="px-3 py-3 align-top text-sm">
                     <p className="font-bold text-primary">{order.order_id}</p>
@@ -406,7 +304,7 @@ const DashboardOrderHistory = () => {
                     </p>
                   </td>
                   <td className="px-3 py-3 align-top text-sm text-primary/90">
-                    <p className="font-semibold text-primary">{order.product_name}</p>
+                    <p className="font-semibold text-primary">{order.product_details?.name || `Product #${order.product}`}</p>
                     <p className="text-xs text-primary/75">
                       {order.quantity_bags} bags ({order.quantity_tons} tons)
                     </p>
@@ -438,17 +336,24 @@ const DashboardOrderHistory = () => {
                   </td>
                 </tr>
               ))}
+              {!loading && pagedOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-5 text-center text-sm font-medium text-primary/70">
+                    No orders found for current filters.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
 
         <div className="grid gap-3 p-3 md:hidden">
-          {paginatedOrders.map((order) => (
+          {pagedOrders.map((order) => (
             <article key={order.id} className="rounded-xl border border-secondary/20 bg-white p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-primary">{order.order_id}</p>
-                  <p className="text-xs text-primary/70">{order.product_name}</p>
+                  <p className="text-xs text-primary/70">{order.product_details?.name || `Product #${order.product}`}</p>
                 </div>
                 <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-bold ${statusBadgeClass[order.order_status]}`}>
                   {statusLabel[order.order_status]}
@@ -490,13 +395,13 @@ const DashboardOrderHistory = () => {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-secondary/25 bg-white px-4 py-3">
         <p className="text-sm text-primary/80">
-          Showing {paginatedOrders.length} of {filteredOrders.length} orders
+          Showing {pagedOrders.length} of {totalCount} orders
         </p>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || loading}
             className="rounded-lg border border-secondary/35 px-3 py-1.5 text-sm font-bold text-primary transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             Previous
@@ -507,7 +412,7 @@ const DashboardOrderHistory = () => {
           <button
             type="button"
             onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-            disabled={currentPage === totalPages}
+            disabled={currentPage === totalPages || loading}
             className="rounded-lg border border-secondary/35 px-3 py-1.5 text-sm font-bold text-primary transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
           >
             Next
@@ -515,26 +420,26 @@ const DashboardOrderHistory = () => {
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-secondary/25 bg-white p-4 text-sm text-primary/80">
-        Next API swap: replace `initialOrders` with `GET /api/orders/history/` and, for paginated mode, use
-        `GET /api/orders/?page=...&order_status=...&ordering=...`.
-        <Link
-          href="/docs/FRONTEND_ORDER_HISTORY_GUIDE.md"
-          className="ml-2 rounded font-semibold text-primary underline decoration-accent-2 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
-        >
-          Frontend order history guide
-        </Link>
-      </div>
-
       <ConfirmModal
         open={targetCancelId !== null}
         title="Cancel this order?"
-        description="This is simulated for now. In real integration, this would call PATCH /api/orders/{id}/cancel/."
-        confirmLabel="Yes, cancel order"
+        description="This action will send a cancellation request to the backend."
+        confirmLabel={cancelLoading ? "Cancelling..." : "Yes, cancel order"}
         cancelLabel="Keep order"
-        onClose={() => setTargetCancelId(null)}
-        onConfirm={applyCancel}
+        onClose={() => (cancelLoading ? null : setTargetCancelId(null))}
+        onConfirm={() => {
+          void applyCancel();
+        }}
       />
+
+      <div className="mt-4">
+        <Link
+          href="/dashboard/place-order"
+          className="inline-flex rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+        >
+          Place New Order
+        </Link>
+      </div>
     </section>
   );
 };

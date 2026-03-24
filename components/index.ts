@@ -40,7 +40,9 @@ export { default as DashboardPlaceholderPage } from "./dashboard/DashboardPlaceh
 export { default as DashboardOverview } from "./dashboard/DashboardOverview";
 export { default as DashboardOrderHistory } from "./dashboard/DashboardOrderHistory";
 export { default as DashboardOrderTracking } from "./dashboard/DashboardOrderTracking";
+export { default as DashboardNotifications } from "./dashboard/DashboardNotifications";
 export { default as DashboardProfileSettings } from "./dashboard/DashboardProfileSettings";
+export { default as DashboardPlaceOrder } from "./dashboard/DashboardPlaceOrder";
 
 // ui
 export { default as AppButton } from "./ui/AppButton";

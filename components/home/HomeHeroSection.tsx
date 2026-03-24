@@ -1,9 +1,43 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
+import { getCurrentUser, getTokens } from "@/app/lib/authClient";
 import { homeHeroStats } from "@/data/static.home";
 
 const HomeHeroSection = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(getTokens().access);
+  });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAuth = async () => {
+      const { access } = getTokens();
+      if (!access) {
+        if (mounted) setIsAuthenticated(false);
+        return;
+      }
+
+      try {
+        await getCurrentUser();
+        if (mounted) setIsAuthenticated(true);
+      } catch {
+        if (mounted) setIsAuthenticated(false);
+      }
+    };
+
+    void syncAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section aria-labelledby="home-hero-title" className="relative overflow-hidden">
       <div
@@ -25,12 +59,21 @@ const HomeHeroSection = () => {
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/register"
-              className="rounded-xl border border-primary bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
-            >
-              Create Customer Account
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href="/dashboard"
+                className="rounded-xl border border-primary bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/register"
+                className="rounded-xl border border-primary bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
+              >
+                Create Customer Account
+              </Link>
+            )}
             <Link
               href="/products"
               className="rounded-xl border border-secondary/40 bg-white px-5 py-3 text-sm font-bold text-primary transition hover:bg-accent/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2"
@@ -58,7 +101,7 @@ const HomeHeroSection = () => {
         <div className="relative">
           <div className="relative overflow-hidden rounded-3xl border border-secondary/20 bg-white p-2 shadow-xl">
             <Image
-              src="https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=1200&auto=format&fit=crop"
+              src="https://images.unsplash.com/photo-1551754655-cd27e38d2076?q=80&w=1200&auto=format&fit=crop"
               alt="Harvested maize cobs arranged in rows for quality sorting"
               width={1200}
               height={900}
@@ -77,4 +120,3 @@ const HomeHeroSection = () => {
 };
 
 export default HomeHeroSection;
-
